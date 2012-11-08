@@ -11,6 +11,8 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.channels.Channels;
@@ -20,7 +22,15 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.swing.*;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JEditorPane;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingConstants;
 
 public class Launcher extends JFrame implements ActionListener {
 	protected JLabel status;
@@ -115,11 +125,12 @@ public class Launcher extends JFrame implements ActionListener {
 		boolean isLatest = checkLocalVersion(latestVersion);
 		
 		if (isLatest) {
-			//TODO: Launch Game and kill self
+			addMessage("Up to date.");
+			playGame();
 		} else {
 			// See if we need the binaries
 			String osName = System.getProperty("os.name");
-			String nativesPath = "lib/natives/";
+			String nativesPath = "lib/native/";
 			String osDir = "";
 			ArrayList<String> nativeFiles = new ArrayList<String>(); 
 			if (osName.contains("Mac OS X")) {
@@ -129,6 +140,18 @@ public class Launcher extends JFrame implements ActionListener {
 				nativeFiles.add("libjinput-osx.jnilib");
 				nativeFiles.add("liblwjgl.jnilib");
 				nativeFiles.add("openal.dylib");
+			} else if (osName.contains("Windows")) {
+				System.out.println("Installing Winows Version");
+				osDir = "windows";
+ 				
+				nativeFiles.add("OpenAL64.dll");
+				nativeFiles.add("OpenAL32.dll");
+				nativeFiles.add("lwjgl64.dll");
+				nativeFiles.add("lwjgl.dll");
+				nativeFiles.add("jinput-raw_64.dll");
+				nativeFiles.add("jinput-raw.dll");
+				nativeFiles.add("jinput-dx8_64.dll");
+				nativeFiles.add("jinput-dx8.dll");
 			}
 			File nativesDir = new File(nativesPath + osDir);
 			addMessage("Checking natives installation...");
@@ -154,11 +177,72 @@ public class Launcher extends JFrame implements ActionListener {
 			}
 			
 			// Download the latest JAR
-			
-			// Update the Version File
+			addMessage("Downloading updates...");
+			try {
+				URL website = new URL(cdnUrl + "releases/" + latestVersion + "/Sprawl.jar");
+			    ReadableByteChannel rbc = Channels.newChannel(website.openStream());
+			    new FileOutputStream("./Sprawl.jar").getChannel().transferFrom(rbc, 0, 1 << 24);
+			    
+			    // Update the Version File
+			    updateLocalVersion(latestVersion);
+			    addMessage("Update to " + latestVersion + " Complete!");
+			    
+			    playGame();
+			} catch(Exception e1) {
+				addMessage("There was an error downloading Updates.");
+				e1.printStackTrace();
+				return;
+			}
 		}
 		
 		button.setEnabled(true);
+	}
+	
+	public void playGame() {
+		addMessage("Launching game...");
+		File file = new File("Sprawl.jar");
+		
+		try {
+			Process proc = Runtime.getRuntime().exec("java -jar " + file.getAbsolutePath());
+			System.exit(0);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+//		URLClassLoader cl;
+//		try {
+//			URL jarURL = file.toURI().toURL();
+//			cl =  URLClassLoader.newInstance(new URL[] {jarURL});
+//			Class gameClass = cl.loadClass("sprawl.Game");
+//			Method gameLoop = gameClass.getMethod("gameLoop");
+//			Object MyClassObj = gameClass.newInstance();
+//			Object response = gameLoop.invoke(MyClassObj);
+//			
+//		} catch (MalformedURLException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (InstantiationException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (IllegalAccessException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (ClassNotFoundException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (SecurityException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (NoSuchMethodException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (IllegalArgumentException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (InvocationTargetException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}        
 	}
 	
 	public void addMessage(String message) {
@@ -171,17 +255,29 @@ public class Launcher extends JFrame implements ActionListener {
 		// Get the local version
 		BufferedReader br;
 		try {
-			br = new BufferedReader(new FileReader("./game/VERSION"));
+			br = new BufferedReader(new FileReader("./VERSION"));
 	        String currentVersion = br.readLine();
 	        br.close();
 	        
 	        addMessage("Local Version " + currentVersion);
-	        return latestVersion == currentVersion;
+	        return latestVersion.equals(currentVersion);
 	    } catch (IOException e) {
 	    	addMessage("Local Version Not Found");
 	    }
 		
 		return false;
+	}
+	
+	public void updateLocalVersion(String latestVersion) throws IOException {
+		Writer out = new OutputStreamWriter(new FileOutputStream("./VERSION"));
+		try {
+			out.write(latestVersion);
+	        addMessage("Local Version " + latestVersion);
+	    } catch (IOException e) {
+	    	addMessage("Couldn't update VERSION file.");
+	    } finally {
+	    	out.close();
+	    }
 	}
 	
 	public String checkForUpdates() {
